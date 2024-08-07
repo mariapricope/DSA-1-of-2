@@ -1,0 +1,23 @@
+{
+    "questions": {
+        "2": {
+            "id": 2,
+            "text": "Who was the first Prime Minister of the UK?",
+            "difficulty": "Hard",
+            "topic": "History",
+            "question_type": "Multiple Choice"
+        }
+    },
+    "topics": {
+        "Geography": {},
+        "History": {
+            "2": {
+                "id": 2,
+                "text": "Who was the first Prime Minister of the UK?",
+                "difficulty": "Hard",
+                "topic": "History",
+                "question_type": "Multiple Choice"
+            }
+        }
+    }
+}
