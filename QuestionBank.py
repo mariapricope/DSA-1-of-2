@@ -1,6 +1,6 @@
 import time
 import random
-import pandas as pd
+import json
 
 start_time = time.time()
 
@@ -161,36 +161,23 @@ class QuestionBank:
         }
 
     def save_to_file(self, filename):
-        """Save the question bank to an Excel file."""
-        questions_data = [q.to_dict() for q in self.questions.values()]
-        questions_df = pd.DataFrame(questions_data)
-        questions_df.to_excel(filename, sheet_name='Questions', index=False)
-        
-        # Save topics to a separate sheet
-        topics_data = []
-        for topic, questions in self.topics.items():
-            for q in questions.values():
-                topics_data.append({'topic': topic, **q.to_dict()})
-        topics_df = pd.DataFrame(topics_data)
-        with pd.ExcelWriter(filename, engine='openpyxl', mode='a') as writer:
-            topics_df.to_excel(writer, sheet_name='Topics', index=False)
-
+        """Save the question bank to a file."""
+        with open(filename, 'w') as file:
+            json.dump({
+                'questions': {id: question.to_dict() for id, question in self.questions.items()},
+                'topics': {topic: {id: question.to_dict() for id, question in questions.items()} for topic, questions in self.topics.items()}
+            }, file, indent=4)
         print(f"Question bank saved to {filename}.")
 
     def load_from_file(self, filename):
-        """Load the question bank from an Excel file."""
-        questions_df = pd.read_excel(filename, sheet_name='Questions')
-        topics_df = pd.read_excel(filename, sheet_name='Topics')
-        
-        self.questions = {int(row['id']): Question.from_dict(row) for index, row in questions_df.iterrows()}
-        self.topics = {}
-        for index, row in topics_df.iterrows():
-            topic = row['topic']
-            question = Question.from_dict(row)
-            if topic not in self.topics:
-                self.topics[topic] = {}
-            self.topics[topic][question.id] = question
-        
+        """Load the question bank from a file."""
+        with open(filename, 'r') as file:
+            data = json.load(file)
+            self.questions = {int(id): Question.from_dict(question) for id, question in data['questions'].items()}
+            self.topics = {
+                topic: {int(id): Question.from_dict(question) for id, question in questions.items()}
+                for topic, questions in data['topics'].items()
+            }
         print(f"Question bank loaded from {filename}.")
 
 # Example of usage:
@@ -224,8 +211,8 @@ if __name__ == "__main__":
     print("Statistics:", stats)
 
     # Save and load question bank
-    qb.save_to_file('question_bank.xlsx')
-    qb.load_from_file('question_bank.xlsx')
+    qb.save_to_file('question_bank.json')
+    qb.load_from_file('question_bank.json')
 
 # Print execution time
 print("Execution Time:  %s seconds." % (time.time() - start_time))
