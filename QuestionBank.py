@@ -1,4 +1,7 @@
 import time
+import random
+import pandas as pd
+
 start_time = time.time()
 
 class Question:
@@ -15,6 +18,26 @@ class Question:
         return (f"Question(ID: {self.id}, Text: {self.text}, Difficulty: {self.difficulty}, "
                 f"Topic: {self.topic}, Type: {self.question_type})")
 
+    def to_dict(self):
+        """Convert the Question object to a dictionary."""
+        return {
+            'id': self.id,
+            'text': self.text,
+            'difficulty': self.difficulty,
+            'topic': self.topic,
+            'question_type': self.question_type
+        }
+
+    @staticmethod
+    def from_dict(data):
+        """Create a Question object from a dictionary."""
+        return Question(
+            id=data['id'],
+            text=data['text'],
+            difficulty=data['difficulty'],
+            topic=data['topic'],
+            question_type=data['question_type']
+        )
 
 class QuestionBank:
     def __init__(self):
@@ -61,20 +84,21 @@ class QuestionBank:
 
         print(f"Question {id} updated successfully.")
 
-    def search_questions(self, difficulty=None, topic=None):
-        """Search for questions based on difficulty and/or topic."""
+    def search_questions(self, difficulties=None, topics=None):
+        """Search for questions based on multiple difficulties and/or topics."""
         result = []
-        if topic:
-            if topic in self.topics:
-                result.extend(self.topics[topic].values())
+        if topics:
+            for topic in topics:
+                if topic in self.topics:
+                    result.extend(self.topics[topic].values())
         else:
             result.extend(self.questions.values())
 
-        if difficulty:
-            result = [q for q in result if q.difficulty == difficulty]
+        if difficulties:
+            result = [q for q in result if q.difficulty in difficulties]
 
         return result
-    
+
     def search_question_by_id(self, target_id):
         """Perform binary search to find a question by its ID."""
         sorted_ids = sorted(self.questions.keys())  # Sort question IDs
@@ -109,24 +133,99 @@ class QuestionBank:
         for id, question in self.questions.items():
             print(f"ID: {id}, Text: {question.text}, Difficulty: {question.difficulty}, Topic: {question.topic}, Type: {question.question_type}")
 
-# Example of add, display, search by topic, update, display all and delete questions:
+    def generate_random_question(self, topic=None, difficulty=None):
+        """Generate a random question based on optional criteria."""
+        filtered_questions = list(self.questions.values())
+        if topic:
+            filtered_questions = [q for q in filtered_questions if q.topic == topic]
+        if difficulty:
+            filtered_questions = [q for q in filtered_questions if q.difficulty == difficulty]
+        if not filtered_questions:
+            return None
+        return random.choice(filtered_questions)
+
+    def provide_statistics(self):
+        """Provide statistics about the question bank."""
+        total_questions = len(self.questions)
+        topic_distribution = {topic: len(questions) for topic, questions in self.topics.items()}
+        difficulty_distribution = {}
+        for question in self.questions.values():
+            if question.difficulty not in difficulty_distribution:
+                difficulty_distribution[question.difficulty] = 0
+            difficulty_distribution[question.difficulty] += 1
+
+        return {
+            'total_questions': total_questions,
+            'topic_distribution': topic_distribution,
+            'difficulty_distribution': difficulty_distribution
+        }
+
+    def save_to_file(self, filename):
+        """Save the question bank to an Excel file."""
+        questions_data = [q.to_dict() for q in self.questions.values()]
+        questions_df = pd.DataFrame(questions_data)
+        questions_df.to_excel(filename, sheet_name='Questions', index=False)
+        
+        # Save topics to a separate sheet
+        topics_data = []
+        for topic, questions in self.topics.items():
+            for q in questions.values():
+                topics_data.append({'topic': topic, **q.to_dict()})
+        topics_df = pd.DataFrame(topics_data)
+        with pd.ExcelWriter(filename, engine='openpyxl', mode='a') as writer:
+            topics_df.to_excel(writer, sheet_name='Topics', index=False)
+
+        print(f"Question bank saved to {filename}.")
+
+    def load_from_file(self, filename):
+        """Load the question bank from an Excel file."""
+        questions_df = pd.read_excel(filename, sheet_name='Questions')
+        topics_df = pd.read_excel(filename, sheet_name='Topics')
+        
+        self.questions = {int(row['id']): Question.from_dict(row) for index, row in questions_df.iterrows()}
+        self.topics = {}
+        for index, row in topics_df.iterrows():
+            topic = row['topic']
+            question = Question.from_dict(row)
+            if topic not in self.topics:
+                self.topics[topic] = {}
+            self.topics[topic][question.id] = question
+        
+        print(f"Question bank loaded from {filename}.")
+
+# Example of usage:
 if __name__ == "__main__":
     qb = QuestionBank()
     qb.add_question(1, "What is the capital of the UK?", "Easy", "Geography", "Multiple Choice")
     qb.add_question(2, "Who was the first Prime Minister of the UK?", "Medium", "History", "Multiple Choice")
     qb.display_all_questions()
-    print(qb.search_questions(topic="History"))
+    print(qb.search_questions(topics=["History"]))
     qb.update_question(2, difficulty="Hard")
     qb.display_all_questions()
     qb.delete_question(1)
     qb.display_all_questions()
 
-# Binary search by ID
+    # Binary search by ID
     found_question = qb.search_question_by_id(2)
     if found_question:
         print("Found question:", found_question)
     else:
         print("Question not found.")
 
+    # Random question generator
+    random_question = qb.generate_random_question(topic="History")
+    if random_question:
+        print("Random question:", random_question)
+    else:
+        print("No question found.")
 
-// print("Execution Time:  %s seconds." % (time.time() - start_time))
+    # Provide statistics
+    stats = qb.provide_statistics()
+    print("Statistics:", stats)
+
+    # Save and load question bank
+    qb.save_to_file('question_bank.xlsx')
+    qb.load_from_file('question_bank.xlsx')
+
+# Print execution time
+print("Execution Time:  %s seconds." % (time.time() - start_time))
